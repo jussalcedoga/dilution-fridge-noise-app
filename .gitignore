@@ -1,0 +1,8 @@
+cat <<EOF > .gitignore
+__pycache__/
+*.pyc
+.env
+venv/
+.streamlit/secrets.toml
+.ipynb_checkpoints/
+EOF
