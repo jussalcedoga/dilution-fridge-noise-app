@@ -430,6 +430,6 @@ st.markdown(
 - You can use this app to quickly explore how pushing attenuation to colder
   stages changes the effective bath seen by your sample.
 - Logo in the sidebar was obtained from: https://github.com/mvwf/qublitz/blob/main/images/logo.png
-- This app was mainly developed by Juan S. Salcedo-Gallo. Contributions are encouraged and welcome.
+- This app was mainly developed by **[Juan S. Salcedo-Gallo](https://www.linkedin.com/in/jussalcedoga/)**. Contributions are encouraged and welcome.
 """
 )
