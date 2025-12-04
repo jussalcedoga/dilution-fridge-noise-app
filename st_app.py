@@ -104,6 +104,8 @@ st.set_page_config(
     layout="wide"
 )
 
+st.sidebar.image("logo.png")
+
 # CSS: color only T_eff metrics (wrapped in .teff-metric) in red
 st.markdown(
     """
@@ -427,5 +429,7 @@ st.markdown(
 - Temperatures in the cards are shown in K or mK depending on the scale.  
 - You can use this app to quickly explore how pushing attenuation to colder
   stages changes the effective bath seen by your sample.
+- Logo in the sidebar was obtained from: https://github.com/mvwf/qublitz/blob/main/images/logo.png
+- This app was mainly developed by Juan S. Salcedo-Gallo. Contributions are encouraged and welcome.
 """
 )
