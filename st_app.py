@@ -133,6 +133,18 @@ You can:
 """
 )
 
+st.markdown(
+    """
+    <style>
+    /* Color ONLY the metric value inside the T_eff wrapper */
+    .teff-metric [data-testid="stMetricValue"] {
+        color: #e74c3c !important;
+        font-weight: bold;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 # -------------------------
 # Math section
 # -------------------------
@@ -322,9 +334,13 @@ for col, row in zip(cols, summary_rows):
             st.metric("n_eff (ref)", f"{row['n_eff (ref)']:.3e}")
         st.metric("Noise red vs room [dB]", f"{row['Noise red vs room [dB]']:.1f}")
         # T_eff metric in same style, but value colored via CSS
+        # st.markdown("<div class='teff-metric'>", unsafe_allow_html=True)
+        # st.metric("T_eff (ref)", format_temp(row["T_eff (ref) [K]"]))
+        # st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("<div class='teff-metric'>", unsafe_allow_html=True)
         st.metric("T_eff (ref)", format_temp(row["T_eff (ref) [K]"]))
         st.markdown("</div>", unsafe_allow_html=True)
+
 
 with st.expander("Tabular per-stage summary at reference frequency"):
     table_df = summary_df.copy()
