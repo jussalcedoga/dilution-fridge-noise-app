@@ -5,6 +5,9 @@
   <img src="logo.png" alt="App Logo" width="180"/>
 </p> -->
 
+[![Live App](https://img.shields.io/badge/Streamlit-Live%20App-brightgreen?logo=streamlit)](https://dilution-fridge-noise-app-fitzlab.streamlit.app/)
+
+
 ---
 
 ## Overview
