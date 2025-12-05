@@ -7,7 +7,7 @@
 
 ---
 
-## 📌 Overview
+## Overview
 
 This application provides an interactive tool to model **thermal photon occupation**,  
 **effective noise temperature**, and **noise suppression** along a microwave drive line inside a  
@@ -28,7 +28,7 @@ device-level thermal loading.
 
 ---
 
-## ✨ Features
+## Features
 
 - Interactive adjustment of:
   - Stage temperatures (300 K → MXC)
