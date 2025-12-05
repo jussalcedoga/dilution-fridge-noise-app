@@ -210,7 +210,7 @@ st.markdown("---")
 # Default stage definitions
 # -------------------------
 default_stage_names = ["300 K (Room)", "50 K", "4 K", "Still", "MXC"]
-default_stage_temps = [300.0, 50.0, 4.0, 0.1, 0.02]  # Kelvin
+default_stage_temps = [300.0, 50.0, 4.0, 0.7, 0.01]  # Kelvin
 
 st.sidebar.header("Fridge Configuration")
 
