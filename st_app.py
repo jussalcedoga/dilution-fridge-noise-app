@@ -96,6 +96,17 @@ def format_temp(T):
         return f"{T:.3g} K"
 
 
+def dBm_to_W(P_dBm):
+    """Convert power from dBm to Watts."""
+    return 10 ** ((P_dBm - 30.0) / 10.0)
+
+
+def W_to_dBm(P_W):
+    """Convert power from Watts to dBm."""
+    P_W = np.maximum(P_W, 1e-30)
+    return 10.0 * np.log10(P_W) + 30.0
+
+
 # -------------------------
 # Streamlit app
 # -------------------------
@@ -106,12 +117,13 @@ st.set_page_config(
 
 st.sidebar.image("logo.png")
 
-# CSS: color only T_eff metrics (wrapped in .teff-metric) in red
+# CSS: color T_eff metrics wrapped in .teff-metric in red (we'll use this only for MXC)
 st.markdown(
     """
     <style>
     .teff-metric [data-testid="stMetricValue"] {
-        color: #e74c3c;
+        color: #e74c3c !important;
+        font-weight: bold;
     }
     </style>
     """,
@@ -133,18 +145,6 @@ You can:
 """
 )
 
-st.markdown(
-    """
-    <style>
-    /* Color ONLY the metric value inside the T_eff wrapper */
-    .teff-metric [data-testid="stMetricValue"] {
-        color: #e74c3c !important;
-        font-weight: bold;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
 # -------------------------
 # Math section
 # -------------------------
@@ -269,6 +269,27 @@ for name in default_stage_names:
 
 st.sidebar.markdown("---")
 
+# Drive configuration: input power and cable insertion loss
+st.sidebar.subheader("Drive configuration")
+P_in_dBm = st.sidebar.number_input(
+    "Signal generator power at 300 K [dBm]",
+    min_value=-200.0,
+    max_value=30.0,
+    value=-60.0,
+    step=1.0,
+    format="%.1f",
+)
+cable_loss_dB = st.sidebar.number_input(
+    "Cable insertion loss to MXC [dB]",
+    min_value=0.0,
+    max_value=60.0,
+    value=15.0,
+    step=0.5,
+    format="%.1f",
+)
+
+st.sidebar.markdown("---")
+
 # Toggle for showing n_eff in summary
 show_n_eff = st.sidebar.checkbox("Show n_eff in per-stage summary", value=False)
 
@@ -294,13 +315,34 @@ n_room = thermal_n(stage_temps[0], freqs)
 noise_reduction_dB = 10 * np.log10(n_room / np.maximum(n_eff, 1e-30))
 
 # -------------------------
-# Per-stage summary at f_ref
+# Drive power along the chain
+# -------------------------
+n_stages = len(default_stage_names)
+atten_vals = np.array(atten_vals)
+cum_atten = np.cumsum(atten_vals)
+
+# Power at each stage due to the coherent drive (attenuators only)
+P_dBm_stage = P_in_dBm - cum_atten
+
+# Include additional cable insertion loss only on the MXC side
+P_dBm_stage_with_cable = P_dBm_stage.copy()
+P_dBm_stage_with_cable[-1] = P_dBm_stage_with_cable[-1] - cable_loss_dB
+
+# For plotting vs frequency: power is flat vs f (ignore frequency-dependent attenuation)
+P_dBm_stage_vs_f = np.zeros((n_stages, len(freqs)))
+for i in range(n_stages):
+    P_dBm_stage_vs_f[i, :] = P_dBm_stage_with_cable[i]
+
+# -------------------------
+# Per-stage summary at f_ref (main report)
 # -------------------------
 st.header("Per-stage summary at reference frequency")
 
 idx_ref = (np.abs(freqs - f_ref)).argmin()
+f_ref_Hz = freqs[idx_ref] * 1e9
 
 summary_rows = []
+drive_rows = []
 for i, name in enumerate(default_stage_names):
     T_stage = stage_temps[i]
     A_dB = atten_vals[i]
@@ -308,6 +350,12 @@ for i, name in enumerate(default_stage_names):
     T_out = T_eff[i, idx_ref]
     n_room_ref = n_room[idx_ref]
     red_dB = 10 * np.log10(n_room_ref / max(n_out, 1e-30))
+
+    # Drive info for separate table
+    P_stage_dBm = P_dBm_stage_with_cable[i]
+    P_stage_W = dBm_to_W(P_stage_dBm)
+    photons_per_s = P_stage_W / (h * f_ref_Hz)
+    photons_per_us = photons_per_s * 1e-6
 
     summary_rows.append(
         {
@@ -320,27 +368,35 @@ for i, name in enumerate(default_stage_names):
         }
     )
 
+    drive_rows.append(
+        {
+            "Stage": name,
+            "Drive power (ref) [dBm]": P_stage_dBm,
+            "Drive photons/us (ref)": photons_per_us,
+        }
+    )
+
 summary_df = pd.DataFrame(summary_rows)
+drive_df = pd.DataFrame(drive_rows)
 
 cols = st.columns(len(default_stage_names))
 
 for col, row in zip(cols, summary_rows):
     with col:
         st.markdown(f"### {row['Stage']}")
-        # Physical stage temperature first
         st.metric("T_stage", format_temp(row["T_stage [K]"]))
         st.metric("Atten [dB]", f"{row['Atten [dB]']:.1f}")
         if show_n_eff:
             st.metric("n_eff (ref)", f"{row['n_eff (ref)']:.3e}")
         st.metric("Noise red vs room [dB]", f"{row['Noise red vs room [dB]']:.1f}")
-        # T_eff metric in same style, but value colored via CSS
-        # st.markdown("<div class='teff-metric'>", unsafe_allow_html=True)
-        # st.metric("T_eff (ref)", format_temp(row["T_eff (ref) [K]"]))
-        # st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("<div class='teff-metric'>", unsafe_allow_html=True)
-        st.metric("T_eff (ref)", format_temp(row["T_eff (ref) [K]"]))
-        st.markdown("</div>", unsafe_allow_html=True)
 
+        # T_eff: only highlight MXC in red/bold
+        if "MXC" in row["Stage"]:
+            st.markdown("<div class='teff-metric'>", unsafe_allow_html=True)
+            st.metric("T_eff (ref)", format_temp(row["T_eff (ref) [K]"]))
+            st.markdown("</div>", unsafe_allow_html=True)
+        else:
+            st.metric("T_eff (ref)", format_temp(row["T_eff (ref) [K]"]))
 
 with st.expander("Tabular per-stage summary at reference frequency"):
     table_df = summary_df.copy()
@@ -357,6 +413,25 @@ with st.expander("Tabular per-stage summary at reference frequency"):
         fmt["n_eff (ref)"] = "{:.3e}"
 
     st.dataframe(table_df.style.format(fmt))
+
+# -------------------------
+# Separate drive power table (optional)
+# -------------------------
+show_drive_table = st.checkbox(
+    "Show drive power & photon flux table at reference frequency",
+    value=False,
+)
+
+if show_drive_table:
+    st.subheader("Drive power and photon flux at reference frequency")
+    st.dataframe(
+        drive_df.style.format(
+            {
+                "Drive power (ref) [dBm]": "{:.1f}",
+                "Drive photons/us (ref)": "{:.3e}",
+            }
+        )
+    )
 
 # -------------------------
 # Plot: photon number vs frequency
@@ -437,6 +512,62 @@ if st.checkbox("Show plot: noise level vs room (in dB)", value=True):
 
     st.plotly_chart(fig_dB, use_container_width=True)
 
+# -------------------------
+# Plot: drive power vs frequency at each stage
+# -------------------------
+if st.checkbox("Show plot: drive power vs frequency (dBm)", value=False):
+    st.header("Drive power vs frequency at each stage [dBm]")
+
+    fig_P = go.Figure()
+    for i, name in enumerate(default_stage_names):
+        fig_P.add_trace(
+            go.Scatter(
+                x=freqs,
+                y=P_dBm_stage_vs_f[i, :],
+                mode="lines",
+                name=name
+            )
+        )
+
+    fig_P.update_layout(
+        xaxis_title="Frequency [GHz]",
+        yaxis_title="Drive power [dBm]",
+        template="plotly_white",
+        legend_title_text="Stage"
+    )
+
+    st.plotly_chart(fig_P, use_container_width=True)
+
+# -------------------------
+# Plot: drive photon flux vs frequency at each stage
+# -------------------------
+if st.checkbox("Show plot: drive photon flux vs frequency", value=False):
+    st.header("Drive photon flux vs frequency at each stage")
+
+    fig_flux = go.Figure()
+    for i, name in enumerate(default_stage_names):
+        P_W_stage = dBm_to_W(P_dBm_stage_with_cable[i])
+        photon_flux = P_W_stage / (h * freqs * 1e9)  # photons/s
+
+        fig_flux.add_trace(
+            go.Scatter(
+                x=freqs,
+                y=photon_flux,
+                mode="lines",
+                name=name
+            )
+        )
+
+    fig_flux.update_layout(
+        xaxis_title="Frequency [GHz]",
+        yaxis_title="Drive photon flux [photons/s]",
+        yaxis_type="log",
+        template="plotly_white",
+        legend_title_text="Stage"
+    )
+
+    st.plotly_chart(fig_flux, use_container_width=True)
+
 st.markdown(
     """
 **Notes**
@@ -445,6 +576,9 @@ st.markdown(
 - Temperatures in the cards are shown in K or mK depending on the scale.  
 - You can use this app to quickly explore how pushing attenuation to colder
   stages changes the effective bath seen by your sample.
+- The drive section estimates the coherent signal power and corresponding photon
+  flux at each stage, given the input power at 300 K and total attenuation
+  (including cable loss to MXC).
 - Logo in the sidebar was obtained from: https://github.com/mvwf/qublitz/blob/main/images/logo.png
 - This app was mainly developed by **[Juan S. Salcedo-Gallo](https://www.linkedin.com/in/jussalcedoga/)**. Contributions are encouraged and welcome.
 """
