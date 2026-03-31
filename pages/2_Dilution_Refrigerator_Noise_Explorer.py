@@ -115,7 +115,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.sidebar.image("logo.png")
+# st.sidebar.image("logo.png")
 
 # CSS: color T_eff metrics wrapped in .teff-metric in red (we'll use this only for MXC)
 st.markdown(
@@ -579,7 +579,6 @@ st.markdown(
 - The drive section estimates the coherent signal power and corresponding photon
   flux at each stage, given the input power at 300 K and total attenuation
   (including cable loss to MXC).
-- Logo in the sidebar was obtained from: https://github.com/mvwf/qublitz/blob/main/images/logo.png
 - This app was mainly developed by **[Juan S. Salcedo-Gallo](https://www.linkedin.com/in/jussalcedoga/)**. Contributions are encouraged and welcome.
 """
 )
